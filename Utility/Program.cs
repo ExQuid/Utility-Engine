@@ -2,32 +2,39 @@
 // Unauthorized copying of this file, via any medium is strictly prohibited
 // Proprietary and confidential
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net;
 using System.Net.NetworkInformation;
-using System.Runtime.InteropServices;
-using System.Security.Claims;
-using System.Security.Permissions;
 using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
-using System.Threading;
 
 namespace Utility
 {
-    class Program
+    internal class Program
     {
 
-        delegate void passedMethod();
-        static Dictionary<string, passedMethod> functionsToAccess = new Dictionary<string, passedMethod>
+        delegate void PassedMethod();
+
+        private static readonly Dictionary<string, PassedMethod> functionsToAccess = new Dictionary<string, PassedMethod>
         {
-            {"checkAdmin", () => { CheckAdmin();}},
-            {"getMac", () => { GetMacAddress();}},
-            {"copyright", () => { Copyright();}},
-            {"getProcs", () => { GetProcs();}},
-            {"killProc", () => { KillProc();}},
+            {"checkAdmin", CheckAdmin},
+            {"getMac", GetMacAddress},
+            {"copyright", Copyright},
+            {"getProcs", GetProcs},
+            {"killProc", KillProc},
+            {"getIP", GetExternalIp},
+            {"clear", ClearConsole},
+            {"bruteForce", delegate
+            {
+                Console.Write("Please enter a string to bruteforce: ");
+                var input = Console.ReadLine();
+                BruteForce(input);
+            }},
             {"help",delegate {
+               Console.Clear();
+                Console.WriteLine("Available commands: ");
                 foreach (var data in functionsToAccess)
                 {
                     Console.WriteLine(data.Key);
@@ -52,15 +59,12 @@ namespace Utility
                     data.Value();
                 }
             }
-            Console.Clear();
             Main(null);
         }
         public static void CheckAdmin()
         {
             IsUserAdministrator();
-            if (IsUserAdministrator() == true)
-                Console.WriteLine("Result: True");
-            else Console.WriteLine("Result: False");
+            Console.WriteLine(IsUserAdministrator() ? "Result: True" : "Result: False");
             Main(null);
         }
 
@@ -73,7 +77,7 @@ namespace Utility
 
         private static string MacAddress()
         {
-            const int MIN_MAC_ADDR_LENGTH = 12;
+            const int minMacAddrLength = 12;
             string macAddress = string.Empty;
             long maxSpeed = -1;
 
@@ -82,7 +86,7 @@ namespace Utility
                 string tempMac = nic.GetPhysicalAddress().ToString();
                 if (nic.Speed > maxSpeed &&
                     !string.IsNullOrEmpty(tempMac) &&
-                    tempMac.Length >= MIN_MAC_ADDR_LENGTH)
+                    tempMac.Length >= minMacAddrLength)
                 {
                     maxSpeed = nic.Speed;
                     macAddress = tempMac;
@@ -95,23 +99,47 @@ namespace Utility
         public static void GetProcs()
         {
             Process[] procs = Process.GetProcesses();
-            foreach (var data in procs)
+            Dictionary<string, Process> processes = new Dictionary<string, Process>();
+
+
+            procs.ToList().ForEach(delegate (Process process)
             {
-                Console.WriteLine(data.Id + "   " + data.ProcessName);
+                if (!processes.ContainsKey(process.ProcessName))
+                    processes.Add(process.ProcessName, process);
+            });
+
+
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            foreach (var data in processes.OrderBy(x => x.Key))
+            {
+                Console.WriteLine(data.Value.Id.ToString().PadRight(10, ' ') + data.Key);
             }
+            Console.ForegroundColor = ConsoleColor.White;
             Main(null);
         }
 
         public static void KillProc()
         {
             Process[] procs = Process.GetProcesses();
+            Console.ForegroundColor = ConsoleColor.Red;
             Console.Write("Please enter a process to kill: ");
+            Console.ForegroundColor = ConsoleColor.White;
             string inputToKill = Console.ReadLine();
             foreach (var data in procs)
             {
                 if (inputToKill != data.ProcessName) continue;
                 data.Kill();
             }
+
+        }
+
+        public static void ClearConsole()
+        {
+            Console.Clear();
+            Console.ForegroundColor = ConsoleColor.White;
+            Copyright();
+            Main(null);
 
         }
 
@@ -136,15 +164,39 @@ namespace Utility
                 WindowsPrincipal principal = new WindowsPrincipal(user);
                 isAdmin = principal.IsInRole(WindowsBuiltInRole.Administrator);
             }
-            catch (UnauthorizedAccessException ex)
+            catch (UnauthorizedAccessException)
             {
                 isAdmin = false;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 isAdmin = false;
             }
             return isAdmin;
+        }
+
+        public static void GetExternalIp()
+        {
+            WebClient request = new WebClient();
+            try
+            {
+                Console.WriteLine(request.DownloadString("https://www.tinygreatmob.com/API/Public/GetIP.php"));
+            }
+            catch
+            {
+                Console.WriteLine("There was an error connecting to the internet.\r\n Please check your connection!");
+            }
+
+            Main(null);
+        }
+
+        public static void BruteForce(string pass)
+        {
+           
+            BruteForce brute = new BruteForce(pass);
+            brute.MainBrute(null);
+            Console.WriteLine(brute.result);
+            Main(null);           
         }
     }
 }
